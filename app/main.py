@@ -1,103 +1,34 @@
-from sys import getsizeof
-import time
-from typing import Optional
-from fastapi import FastAPI, Response, status, HTTPException
-from pydantic import BaseModel
-from random import randrange
-import psycopg2
-from psycopg2.extras import RealDictCursor
+from fastapi import FastAPI
+from .database import engine
+from . import models
+from .routers import post, user, auth, vote
+from .config import settings
+from fastapi.middleware.cors import CORSMiddleware
+
+# models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
 
+origins = ["*"]
 
-class Post(BaseModel):
-    title: str
-    content: str
-    published: bool = True
+# fetch("http://localhost:8000/")
+#   .then((response) => response.json())
+#   .then((data) => console.log(data));
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-while True:
-    try:
-        conn = psycopg2.connect(host='localhost', database='fastapi', user='postgres',
-                                password='po$tgre$p@$$', cursor_factory=RealDictCursor)
-        cursor = conn.cursor()
-        print("Database connection was successfull!")
-        break
-
-    except Exception as error:
-        print("Connecting to database failed")
-        print("Error: ", error)
-        time.sleep(2)
-
-my_posts = [
-    {
-        "title": "Post Title 1",
-        "content": "post content 1",
-        "id": 1
-    },
-    {
-        "title": "Post Title 2",
-        "content": "post content 2",
-        "id": 2
-    },
-]
+app.include_router(post.router)
+app.include_router(user.router)
+app.include_router(auth.router)
+app.include_router(vote.router)
 
 
 @app.get("/")
 def root():
     return {"message": "Hello World!"}
-
-
-@app.get("/posts")
-def get_posts():
-    cursor.execute("""SELECT * FROM posts """)
-    posts = cursor.fetchall()
-    return {"data": posts}
-
-
-@app.post("/posts", status_code=status.HTTP_201_CREATED)
-def create_posts(post: Post):
-    cursor.execute(
-        """INSERT INTO posts (title, content, published) VALUES (%s, %s, %s) RETURNING * """, (post.title, post.content, post.published))
-    new_post = cursor.fetchone()
-    conn.commit()
-    return {'data': new_post}
-
-
-@app.get("/posts/{id}")
-def get_post(id: int):
-    cursor.execute(
-        """SELECT * FROM posts WHERE id = %s """, (str(id)))
-    post = cursor.fetchone()
-    if not post:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
-                            detail=f"post with id: {id} was not found")
-
-    return {'post_detail': post}
-
-
-@app.delete("/posts/{id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_post(id: int):
-    cursor.execute(
-        """ DELETE FROM posts WHERE id = %s RETURNING * """, (str(id)))
-    deleted_post = cursor.fetchone()
-    conn.commit()
-    print(deleted_post)
-    # post = next((post for post in my_posts if post["id"] == id), None)
-    if not deleted_post:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
-                            detail=f"can't delete post with id: {id}, it does not exist")
-    return Response(status_code=status.HTTP_204_NO_CONTENT)
-
-
-@app.put("/posts/{id}")
-def update_post(id: int, post: Post):
-    cursor.execute(
-        """ UPDATE posts SET title = %s, content = %s, published = %s WHERE id = %s RETURNING * """, (post.title, post.content, post.published, str(id)))
-    updated_post = cursor.fetchone()
-    conn.commit()
-    if not updated_post:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
-                            detail=f"can't update post with id: {id}, it does not exist")
-
-    return {'message': f"post with id: {id} was successfully updated"}
