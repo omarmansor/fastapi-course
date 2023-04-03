@@ -26,6 +26,9 @@ jobs:
         env:
           POSTGRES_PASSWORD: ${{secrets.DATABASE_PASSWORD}}
           POSTGRES_DB: ${{secrets.DATABASE_USERNAME}}_test
+          POSTGRES_HOST: ${{secrets.DATABASE_HOSTNAME}}
+          # The default PostgreSQL port
+          # POSTGRES_PORT: 5432
         ports:
           - 5432:5432
         # Set health checks to wait until postgres has started
